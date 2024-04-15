@@ -42,7 +42,7 @@ const CropZoom: React.FC<CropZoomProps> = (props) => {
     resolution,
     debug = false,
     minScale = 1,
-    maxScale: userMaxScale = -1,
+    maxScale: userMaxScale,
     scaleMode = ScaleMode.BOUNCE,
     panMode = PanMode.FREE,
     panWithPinch = Platform.OS !== 'ios',
@@ -76,13 +76,15 @@ const CropZoom: React.FC<CropZoomProps> = (props) => {
   const detectorScale = useSharedValue<number>(1);
 
   const maxScale = useDerivedValue(() => {
-    const { width, height } = container;
-    const scaleValue = getMaxScale(
-      { width: width.value, height: height.value },
-      resolution
-    );
+    if (userMaxScale === undefined) {
+      const { width, height } = container;
+      return getMaxScale(
+        { width: width.value, height: height.value },
+        resolution
+      );
+    }
 
-    return userMaxScale < 0 ? scaleValue : userMaxScale;
+    return userMaxScale;
   }, [container, userMaxScale, resolution]);
 
   useDerivedValue(() => {
