@@ -15,7 +15,10 @@ import {
 
 import { SCROLL_SIZE, TIMING_CONFIG, images } from './utils/constants';
 import { snapPoint, subscribeToIndexChangeEvent } from './utils/utils';
-import type { PanGestureEvent } from '../../../../src/commons/types';
+import {
+  SwipeDirection,
+  type PanGestureEvent,
+} from '../../../../src/commons/types';
 
 type ListImageProps = {
   uri: string;
@@ -61,18 +64,12 @@ const ListImage: React.FC<ListImageProps> = ({
     return clamp(scroll, 0, MAX_SCROLL_SIZE);
   };
 
-  // on swipe scroll to the next item
-  const swipeLeft = () => {
-    const to = clampScroll(SCROLL_SIZE * (index + 1));
-    scrollX.value = withTiming(to, TIMING_CONFIG, () => {
-      scrollOffset.value = scrollX.value;
-      runOnJS(reset)();
-    });
-  };
+  const onSwipe = (direction: SwipeDirection): void => {
+    let acc = 0;
+    if (direction === SwipeDirection.RIGHT) acc = -1;
+    if (direction === SwipeDirection.LEFT) acc = 1;
 
-  // on swipe scroll to the previous item
-  const swipeRight = () => {
-    const to = clampScroll(SCROLL_SIZE * (index - 1));
+    const to = clampScroll(SCROLL_SIZE * (index + acc));
     scrollX.value = withTiming(to, TIMING_CONFIG, () => {
       scrollOffset.value = scrollX.value;
       runOnJS(reset)();
@@ -144,8 +141,7 @@ const ListImage: React.FC<ListImageProps> = ({
         maxScale={resolution}
         onTap={onTap}
         onPanEnd={onPanEnd}
-        onSwipeLeft={swipeLeft}
-        onSwipeRight={swipeRight}
+        onSwipe={onSwipe}
         onHorizontalBoundsExceeded={onBoundsExceeded}
       >
         <Image
