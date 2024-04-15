@@ -29,6 +29,13 @@ export type SizeVector<T> = {
 
 export type BoundsFuction = (scale: number) => Vector<number>;
 
+export enum SwipeDirection {
+  RIGHT = 'right',
+  LEFT = 'left',
+  UP = 'up',
+  DOWN = 'down',
+}
+
 /**
  * @description Determine how your component must behave when it reaches the specified boundaries
  * by its enclosing container.

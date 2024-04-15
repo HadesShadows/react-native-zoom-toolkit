@@ -21,7 +21,9 @@ import {
   type SizeVector,
   type PanGestureEventCallback,
   type PanGestureEvent,
+  SwipeDirection,
 } from '../types';
+import { useVector } from './useVector';
 
 type PanCommmonOptions = {
   translate: Vector<SharedValue<number>>;
@@ -36,10 +38,9 @@ type PanCommmonOptions = {
   boundFn: BoundsFuction;
   userCallbacks: Partial<{
     onGestureEnd: () => void;
-    onSwipeLeft: () => void;
-    onSwipeRight: () => void;
     onPanStart: PanGestureEventCallback;
     onPanEnd: PanGestureEventCallback;
+    onSwipe: (direction: SwipeDirection) => void;
     onHorizontalBoundsExceeded: (value: number) => void;
   }>;
 };
@@ -66,7 +67,7 @@ export const usePanCommons = (options: PanCommmonOptions) => {
   } = options;
 
   const time = useSharedValue<number>(0);
-  const x = useSharedValue<number>(0);
+  const position = useVector(0, 0);
 
   const isWithinBoundX = useSharedValue<boolean>(true);
   const isWithinBoundY = useSharedValue<boolean>(true);
@@ -83,7 +84,8 @@ export const usePanCommons = (options: PanCommmonOptions) => {
     offset.y.value = translate.y.value;
 
     time.value = performance.now();
-    x.value = e.absoluteX;
+    position.x.value = e.absoluteX;
+    position.y.value = e.absoluteY;
 
     if (userCallbacks.onPanStart) {
       runOnJS(userCallbacks.onPanStart)(e);
@@ -148,28 +150,40 @@ export const usePanCommons = (options: PanCommmonOptions) => {
     }
   };
 
+  const getDirection = (e: PanGestureEvent): SwipeDirection | undefined => {
+    'worklet';
+
+    const deltaTime = performance.now() - time.value;
+    const deltaX = Math.abs(position.x.value - e.absoluteX);
+    const deltaY = Math.abs(position.y.value - e.absoluteY);
+    const { x: boundX, y: boundY } = boundFn(scale.value);
+
+    const swipeR = e.velocityX >= 500 && deltaX >= 20 && deltaTime <= 175;
+    const inRightBound = translate.x.value === boundX;
+    if (swipeR && inRightBound) return SwipeDirection.RIGHT;
+
+    const swipeL = e.velocityX <= -500 && deltaX >= 20 && deltaTime <= 175;
+    const inLeftBound = translate.x.value === -1 * boundX;
+    if (swipeL && inLeftBound) return SwipeDirection.LEFT;
+
+    const swipeU = e.velocityY <= -500 && deltaY >= 20 && deltaTime <= 175;
+    const inUpperBound = translate.y.value === -1 * boundY;
+    if (swipeU && inUpperBound) return SwipeDirection.UP;
+
+    const swipeD = e.velocityY >= 500 && deltaY >= 20 && deltaTime <= 175;
+    const inLowerBound = translate.y.value === boundY;
+    if (swipeD && inLowerBound) return SwipeDirection.DOWN;
+
+    return undefined;
+  };
+
   const onPanEnd = (e: PanGestureEvent) => {
     'worklet';
 
-    const velocity = Math.abs(e.velocityX);
-    const deltaTime = performance.now() - time.value;
-    const deltaX = Math.abs(x.value - e.absoluteX);
-
-    const canSwipe = panMode === PanMode.CLAMP;
-    const didSwipe = velocity >= 500 && deltaX >= 20 && deltaTime < 175;
-    if (canSwipe && didSwipe) {
-      const { x: boundX } = boundFn(scale.value);
-      const direction = Math.sign(e.absoluteX - x.value);
-
-      const inLeftEdge = translate.x.value === -1 * boundX;
-      if (direction === -1 && inLeftEdge && userCallbacks.onSwipeLeft) {
-        runOnJS(userCallbacks.onSwipeLeft)();
-        return;
-      }
-
-      const inRightEdge = translate.x.value === boundX;
-      if (direction === 1 && inRightEdge && userCallbacks.onSwipeRight) {
-        runOnJS(userCallbacks.onSwipeRight)();
+    if (panMode === PanMode.CLAMP && userCallbacks.onSwipe !== undefined) {
+      const direction = getDirection(e);
+      if (direction !== undefined) {
+        runOnJS(userCallbacks.onSwipe)(direction);
         return;
       }
     }
